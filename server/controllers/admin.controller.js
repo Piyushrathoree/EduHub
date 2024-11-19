@@ -1,16 +1,15 @@
-const app = express();
+
 const jwt = require("jsonwebtoken");
-const { User } = require("./models/user.model");
+const { Admin } = require("./models/admin.model");
 const bcrypt = require("bcrypt");
-const mongoose = require("mongoose");
 const { ApiResponse } = require("../utils/ApiResponse.js");
 const { ApiError } = require("../utils/ApiError.js");
 const { z } = require("zod");
 
-//signup controller for user
+//signup controller for admin
 const signup = async (req, res) => {
     // input validation using zod
-    const userSchema = z.object({
+    const adminSchema = z.object({
         name: z.string(),
         email: z.string().email(),
         password: z
@@ -24,10 +23,10 @@ const signup = async (req, res) => {
             .strict(), // this will ensure that zod can only handle three value above
     });
     // Validate the request body
-    const validatedUser = userSchema.parse(req.body);
+    const validatedadmin = adminSchema.parse(req.body);
 
     // If validation passes, proceed with further logic
-    const { name, email, password } = validatedUser;
+    const { name, email, password } = validatedadmin;
 
     console.log(email, password, name);
 
@@ -41,14 +40,14 @@ const signup = async (req, res) => {
     }
     // input validation overs here
 
-    // check if the user already exist in database
-    const existingUser = await User.findOne({ email });
+    // check if the admin already exist in database
+    const existingAdmin = await Admin.findOne({ email });
 
-    if (existingUser) {
+    if (existingAdmin) {
         new ApiError(
             400,
             json({
-                message: "user already exist",
+                message: "admin already exist",
             })
         );
     }
@@ -58,21 +57,21 @@ const signup = async (req, res) => {
 
     console.log(hashPassword);
 
-    // if user is new than storing it to database
-    const user = await User.create({
+    // if admin is new than storing it to database
+    const admin = await Admin.create({
         name,
         email,
         password: hashPassword,
     });
     
      //removing password from response
-     const createdUser = await User.findById(user._id).select(
+     const createdAdmin = await Admin.findById(admin._id).select(
         "-password "
     );
 
-    // response if the user is sign up successfully
+    // response if the admin is sign up successfully
     res.status(200).json(
-        new ApiResponse(200, createdUser, " user signup successfully")
+        new ApiResponse(200, createdAdmin, " admin signup successfully")
     );
 };
 
@@ -81,7 +80,7 @@ const signup = async (req, res) => {
 //signin controller starts here
 const signin = async (req, res) => {
     // input validation using zod
-    const userSchema = z.object({
+    const adminSchema = z.object({
         email: z.string().email(),
         password: z
             .string()
@@ -95,10 +94,10 @@ const signin = async (req, res) => {
     });
 
     // Validate the request body
-    const validatedUser = userSchema.parse(req.body);
+    const validatedAdmin = adminSchema.parse(req.body);
 
     // getting data from client if it passes the checks or input validation
-    const { email, password } = validatedUser;
+    const { email, password } = validatedAdmin;
 
     console.log(email, password);
 
@@ -107,13 +106,13 @@ const signin = async (req, res) => {
         throw new ApiError(400, " field shouldn't be empty ");
     }
 
-    // find user in the database and check if the password is correct
-    const user = await User.findOne({ email });
+    // find admin in the database and check if the password is correct
+    const admin = await Admin.findOne({ email });
 
-    if (!user) {
-        throw new ApiError(404, "user not found , please sign in or retry");
+    if (!admin) {
+        throw new ApiError(404, "admin not found , please sign in or retry");
     }
-    const isPasswordCorrect = await User.isPasswordCorrect(password);
+    const isPasswordCorrect = await Admin.isPasswordCorrect(password);
 
     //check for password
     if (!isPasswordCorrect) {
@@ -127,6 +126,20 @@ const signin = async (req, res) => {
     )
 };
 //sign in controller ends here
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
