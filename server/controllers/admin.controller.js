@@ -1,11 +1,9 @@
-
-const jwt = require("jsonwebtoken");
-const { Admin } = require("./models/admin.model");
-const bcrypt = require("bcrypt");
-const { ApiResponse } = require("../utils/ApiResponse.js");
-const { ApiError } = require("../utils/ApiError.js");
-const { z } = require("zod");
-
+import jwt from "jsonwebtoken";
+import Admin from "../models/admin.model.js";
+import bcrypt from "bcrypt";
+import ApiResponse from "../utils/ApiResponse.js";
+import ApiError from "../utils/ApiError.js";
+import { z } from "zod";
 //signup controller for admin
 const signup = async (req, res) => {
     // input validation using zod
@@ -19,8 +17,7 @@ const signup = async (req, res) => {
             .regex(
                 /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$&])[A-Za-z\d@#$&]{8,}$/,
                 "Password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, one digit, and one of the special characters @, #, $, or &."
-            )
-            .strict(), // this will ensure that zod can only handle three value above
+            ),
     });
     // Validate the request body
     const validatedadmin = adminSchema.parse(req.body);
@@ -30,30 +27,18 @@ const signup = async (req, res) => {
 
     console.log(email, password, name);
 
-    //this will give the exact error if anything seems problematic
-    if (error instanceof z.ZodError) {
-        // Zod validation error
-        return res.status(400).json({
-            message: "Validation error",
-            errors: error.errors.map((err) => err.message),
-        });
-    }
     // input validation overs here
 
     // check if the admin already exist in database
     const existingAdmin = await Admin.findOne({ email });
+    console.log(existingAdmin);
 
     if (existingAdmin) {
-        new ApiError(
-            400,
-            json({
-                message: "admin already exist",
-            })
-        );
+        throw new ApiError(404, "Admin not found , please sign in or retry");
     }
 
     //hashing the password to store in the database
-    const hashPassword = bcrypt.hash(password, 10);
+    const hashPassword = await bcrypt.hash(password, 10);
 
     console.log(hashPassword);
 
@@ -63,11 +48,10 @@ const signup = async (req, res) => {
         email,
         password: hashPassword,
     });
-    
-     //removing password from response
-     const createdAdmin = await Admin.findById(admin._id).select(
-        "-password "
-    );
+    console.log(admin);
+
+    //removing password from response
+    const createdAdmin = await Admin.findById(admin._id).select("-password");
 
     // response if the admin is sign up successfully
     res.status(200).json(
@@ -89,8 +73,7 @@ const signin = async (req, res) => {
             .regex(
                 /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$&])[A-Za-z\d@#$&]{8,}$/,
                 "Password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, one digit, and one of the special characters @, #, $, or &."
-            )
-            .strict(), // this will ensure that zod can only handle three value above
+            ),
     });
 
     // Validate the request body
@@ -112,44 +95,26 @@ const signin = async (req, res) => {
     if (!admin) {
         throw new ApiError(404, "admin not found , please sign in or retry");
     }
-    const isPasswordCorrect = await Admin.isPasswordCorrect(password);
+    const isPasswordCorrect = await Admin.isPasswordCorrect(
+        password,
+        admin.password
+    );
 
     //check for password
     if (!isPasswordCorrect) {
         throw new ApiError(401, " your password is wrong ");
     }
+    const createdAdmin = await Admin.findById(admin._id).select("-password");
+    const token = jwt.sign(email, process.env.JWT_SECRET);
 
-    const token = jwt.sign( email , JWT_SECRET);
+    //set the items in the req.headers
+    req.headers.authorization = token;
 
     res.status(200).json(
-        new ApiResponse(200 , token , " sign-in successful ")
-    )
+        new ApiResponse(200, { createdAdmin, token }, " sign-in successful ")
+    );
 };
 //sign in controller ends here
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 //exporting all the controllers for routing
-export {
-    signup,
-    signin
-}
+export { signup, signin };
