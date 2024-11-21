@@ -2,6 +2,7 @@ import express from "express";
 const app = express();
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
+import Course from "../models/course.model.js";
 import bcrypt from "bcrypt";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
@@ -112,7 +113,7 @@ const signin = async (req, res) => {
          throw new ApiError(401, " your password is wrong ");
      }
  
-     const token = jwt.sign(email, process.env.JWT_SECRET);
+     const token = jwt.sign(email, process.env.USER_JWT_SECRET);
  
      //set the items in the req.headers
      req.headers.authorization = token;
@@ -136,5 +137,21 @@ const signin = async (req, res) => {
 };
 //sign in controller ends here
 
+//controller for get user courses
+const userCourses = async (req, res) => {
+    try {
+        // get user from the from middleware
+        const user = req.user;
+
+        // get the user's courses from the database
+        const courses = await Course.find({ userId: user._id });
+
+        // return the courses
+        res.status(200).json(courses);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json(new ApiResponse(500, null, "server error"));
+    }
+}
 //exporting all the controllers for routing
-export { signup, signin };
+export { signup, signin , userCourses};
