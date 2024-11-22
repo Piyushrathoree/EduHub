@@ -1,4 +1,4 @@
-import mongoose ,{Schema } from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcrypt";
 const adminSchema = new Schema({
     name: {
@@ -8,7 +8,7 @@ const adminSchema = new Schema({
     email: {
         type: String,
         required: true,
-        unique :true,
+        unique: true,
     },
     password: {
         type: String,
@@ -16,11 +16,13 @@ const adminSchema = new Schema({
     },
     avatar: {
         type: String, //cloudinary url
-       
     },
 });
-adminSchema.statics.isPasswordCorrect = async function (password, hashedPassword) {
+adminSchema.statics.isPasswordCorrect = async function (
+    password,
+    hashedPassword
+) {
     return await bcrypt.compare(password, hashedPassword);
 };
 const Admin = mongoose.model("Admin", adminSchema);
-export default Admin
+export { Admin };
