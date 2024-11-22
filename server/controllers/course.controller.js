@@ -1,11 +1,11 @@
 import { Purchase } from "../models/purchase.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Course } from "../models/course.model.js";
-import ApiError from "../utils/ApiError.js";
+import { ApiError } from "../utils/ApiError.js";
 
 const purchase = async (req, res) => {
     const userId = req.user._id;
-    const courseId = req.params;
+    const {courseId} = req.params;
 
     // should check that the user has actually paid the price
     const purchaseMade = await Purchase.create({

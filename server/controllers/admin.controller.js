@@ -1,10 +1,11 @@
 import jwt from "jsonwebtoken";
-import Admin from "../models/admin.model.js";
-import Course from "../models/course.model.js";
+import { Admin } from "../models/admin.model.js";
+import { Course } from "../models/course.model.js";
 import bcrypt from "bcrypt";
-import ApiResponse from "../utils/ApiResponse.js";
-import ApiError from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { ApiError } from "../utils/ApiError.js";
 import { z } from "zod";
+import mongoose from "mongoose";
 //signup controller for admin
 const signup = async (req, res) => {
     // input validation using zod
@@ -123,10 +124,9 @@ const createCourse = async (req, res) => {
         title: z.string().min(5).max(50),
         description: z.string().min(10).max(500),
         price: z.number().positive(),
-        thumbnail: z.string(),
-        strictObject: true,
+        thumbnail: z.string()
     });
-
+ 
     // Validate the request body
     const validatedCourse = courseSchema.parse(req.body);
 
@@ -146,7 +146,7 @@ const createCourse = async (req, res) => {
         description,
         price,
         thumbnail,
-        creatorId: req.user._id,
+        creatorId: req.admin._id,
     });
 
     res.status(201).json(
@@ -155,53 +155,57 @@ const createCourse = async (req, res) => {
 };
 // create course controller ends here
 
-//update course controller added here 
+//update controller starts here
+
 const updateCourse = async (req, res) => {
-    // input validation using zod
-    const courseSchema = z.object({
-        title: z.string().min(5).max(50),
-        description: z.string().min(10).max(500),
-        price: z.number().positive(),
-        thumbnail: z.string(),
-    });
-
-    // Validate the request body
-    const validatedCourse = courseSchema.parse(req.body);
-
-    // getting data from client if it passes the checks or input validation
-    const { title, description, price, thumbnail } = validatedCourse;
-    const { courseId } = req.params;
-
-    console.log(title, description, price, thumbnail, courseId);
-
-    //check if the data is received
-    if (!(title || description || price || thumbnail || courseId)) {
-        throw new ApiError(400, " field shouldn't be empty ");
-    }
-
-    // find course in the database and update it
-    const updatedCourse = await Course.updateOne(
-        {
-            _id: courseId,
-            creatorId: req.user._id,
-        },
-        {
-            title,
-            description,
-            thumbnail,
-            price,
+    try {
+        // Validate courseId format
+        const { courseId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(courseId)) {
+            throw new ApiError(400, "Invalid course ID format");
         }
-    );
-    console.log(updatedCourse);
-    if (!updatedCourse) {
-        throw new ApiError(400, " course not updated ");
-    }
 
-    res.status(200).json(
-        new ApiResponse(200, updatedCourse, "course updated successfully")
-    );
+        // Input validation using zod
+        const courseSchema = z.object({
+            title: z.string().min(5).max(50).optional(),
+            description: z.string().min(10).max(500).optional(),
+            price: z.number().positive().optional(),
+            thumbnail: z.string().optional(),
+        });
+
+        // Validate the request body
+        const validatedCourse = courseSchema.parse(req.body);
+
+        // Ensure at least one field is provided for update
+        if (Object.keys(validatedCourse).length === 0) {
+            throw new ApiError(400, "At least one field must be provided for update");
+        }
+
+        // Perform the update
+        const updatedCourse = await Course.findOneAndUpdate(
+            { _id: courseId, creatorId: req.admin._id }, // Match course by ID and creator ID
+            validatedCourse, // Update fields
+            { new: true } // Return the updated document
+        );
+
+        // Check if the course was found and updated
+        if (!updatedCourse) {
+            throw new ApiError(404, "Course not found or you are not authorized to update it");
+        }
+
+        // Send response
+        res.status(200).json(
+            new ApiResponse(200, updatedCourse, "Course updated successfully")
+        );
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: error.errors });
+        }
+        console.error("Error updating course:", error);
+        res.status(error.status || 500).json({ error: error.message || "Internal server error" });
+    }
 };
-//update course controller added here
+//update controller ends here
 
 //delete course controller here
 const deleteCourse = async (req, res) => {
@@ -212,7 +216,7 @@ const deleteCourse = async (req, res) => {
     }
     const deletedCourse = await Course.findOneAndDelete({
         _id: courseId,
-        creatorId: req.user._id,
+        creatorId: req.admin._id,
     });
 
     console.log(deleteCourse);
@@ -221,23 +225,43 @@ const deleteCourse = async (req, res) => {
         new ApiResponse(200, deletedCourse, " course deleted successfully")
     );
 };
-//delete controller end here 
+//delete controller end here
 
-//get all the admin courses controller here 
+//get all the admin courses controller here
 const myAllCourses = async (req, res) => {
-    const courses = await Course.find({
-        creatorId: req.user._id,
-    });
+    try {
+        const courses = await Course.find({
+            creatorId: req.admin._id,
+        });
 
-    if (!courses) {
-        throw new ApiError(404, "no course found");
+        if (!courses || courses.length === 0) {
+            return res.status(404).json(
+                new ApiResponse(404, null, "No courses found")
+            );
+        }
+
+        return res.status(200).json(
+            new ApiResponse(200, courses, "All courses fetched successfully")
+        );
+    } catch (error) {
+        console.error("Error fetching courses:", error);
+        return res.status(500).json(
+            new ApiResponse(500, null, "Internal server error")
+        );
     }
-
-    res.json(200).json(
-        new ApiResponse(200, courses, " all courses fetched successfully ")
-    );
 };
-//get all the admin courses controller ends here 
+
+//get all the admin courses controller ends here
 
 //exporting all the controllers for routing
-export { signup, signin ,createCourse ,updateCourse ,deleteCourse ,myAllCourses };
+export {
+    signup,
+    signin,
+    createCourse,
+    updateCourse,
+    deleteCourse,
+    myAllCourses,
+};
+
+
+ 
